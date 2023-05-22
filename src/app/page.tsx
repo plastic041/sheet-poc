@@ -9,6 +9,7 @@ import {
   motion,
 } from "framer-motion";
 import { useState } from "react";
+import useMeasure from "react-use-measure";
 
 const COLORS: string[] = [
   "bg-red-500",
@@ -21,42 +22,55 @@ const COLORS: string[] = [
 export default function Home() {
   const [index, setIndex] = useState(0);
   const x = useMotionValue(0);
+  const [ref, { width }] = useMeasure();
 
   function handlePrev() {
     if (index > 0) {
       const newIndex = index - 1;
       setIndex(newIndex);
-      animate(x, newIndex * -100);
+      animate(x, newIndex * -width);
     }
   }
 
   function handleNext() {
     if (index < COLORS.length - 1) {
-      setIndex(index + 1);
+      const newIndex = index + 1;
+      setIndex(newIndex);
+      animate(x, newIndex * -width);
     }
   }
 
   function onPan(event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
-    // move the element horizontally according to cursor position calculated from `-index * 100%`
-    // and the offset of the cursor from the initial position
-    const OFFSET = 100;
-    const x = `-${index * 100 + info.offset.x / 10}%`;
+    x.set(-index * width + info.offset.x);
   }
 
   function onPanEnd(
     event: MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo
   ) {
-    const OFFSET = 100;
+    const OFFSET = width / 2;
     if (info.offset.x > OFFSET) {
-      handlePrev();
-    } else if (info.offset.x < OFFSET) {
-      handleNext();
+      // if not at the end
+      if (index > 0) {
+        handlePrev();
+      } else {
+        animate(x, -index * width);
+      }
+    } else if (info.offset.x < -OFFSET) {
+      // if not at the end
+      if (index < COLORS.length - 1) {
+        handleNext();
+      } else {
+        animate(x, -index * width);
+      }
+    } else {
+      animate(x, -index * width);
     }
   }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-yellow-100 p-24">
+      <h1 className="mb-8 text-4xl font-bold">{index}</h1>
       <MotionConfig
         transition={{
           duration: 1,
@@ -95,32 +109,24 @@ export default function Home() {
               </AnimatePresence>
             </div>
           </div>
-          <motion.div
-            className="flex h-64 w-64"
-            animate={{
-              x: `-${index * 100}%`,
-            }}
-            onPan={onPan}
-            onPanEnd={onPanEnd}
-
-            // drag="x"
-            // dragControls={dragControls}
-            // dragConstraints={{ left: 0, right: 0 }}
-            // dragElastic={0.1}
-            // dragMomentum={false}
-            // onDragEnd={(event, info) => {
-            //   const OFFSET = 100;
-            //   if (info.offset.x > OFFSET) {
-            //     handlePrev();
-            //   } else if (info.offset.x < OFFSET) {
-            //     handleNext();
-            //   }
-            // }}
-          >
-            {COLORS.map((color) => (
-              <div key={color} className={`${color} h-full w-full shrink-0`} />
-            ))}
-          </motion.div>
+          <div className="flex" ref={ref}>
+            <motion.div
+              className="flex h-64 w-64"
+              style={{
+                x: x,
+                touchAction: "pan-y",
+              }}
+              onPan={onPan}
+              onPanEnd={onPanEnd}
+            >
+              {COLORS.map((color) => (
+                <div
+                  key={color}
+                  className={`${color} h-full w-full shrink-0`}
+                />
+              ))}
+            </motion.div>
+          </div>
         </section>
       </MotionConfig>
     </main>
