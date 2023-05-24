@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .h-dyn-screen {
+    height: 100dvh;
+    height: 100vh;
+  }
+
+  .w-dyn-screen {
+    width: 100dvw;
+    width: 100vw;
+  }
+
+  .h-largest {
+    height: 100lvh;
+    height: 100vh;
+  }
+
+  .w-largest {
+    width: 100lvw;
+    width: 100vw;
+  }
+
+  .h-smallest {
+    height: 100svh;
+    height: 100vh;
+  }
+
+  .w-smallest {
+    width: 100svw;
+    width: 100vw;
+  }
+}
