@@ -1,38 +1,47 @@
-// cSpell: disable
-"use client";
-
-import { useSpring, a, config } from "@react-spring/web";
+import { useSpring, a } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { match } from "ts-pattern";
-import { Children, useState } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 const FULL_HEIGHT = 640;
 
-type SheetProps = {
-  children: React.ReactNode;
-  fullHeight?: number;
-  middleHeight?: number;
+const config = {
+  slow: {
+    tension: 240,
+    friction: 30,
+  },
 };
-export function Sheet({ children }: SheetProps) {
-  const [{ y }, api] = useSpring(() => ({ y: FULL_HEIGHT }));
-  const [state, setState] = useState<"CLOSED" | "MIDDLE" | "FULL">("CLOSED");
 
-  function toFull(canceled: boolean = false) {
-    // when cancel is true, it means that the user passed the upwards threshold
-    // so we change the spring config to create a nice wobbly effect
+type SheetProps = {
+  children: ReactNode;
+  middleHeight: number;
+  state: "CLOSED" | "MIDDLE" | "FULL";
+  setState: (state: "CLOSED" | "MIDDLE" | "FULL") => void;
+  top?: number;
+};
+export function Sheet({
+  children,
+  middleHeight,
+  state,
+  setState,
+  top,
+}: SheetProps) {
+  const [{ y }, api] = useSpring(() => ({ y: FULL_HEIGHT }));
+
+  function toFull() {
     api.start({
       y: 0,
       immediate: false,
-      config: canceled ? config.wobbly : config.stiff,
+      config: config.slow,
     });
   }
 
-  function toMidlde() {
+  function toMiddle() {
     api.start({
-      y: FULL_HEIGHT / 2,
-      //
+      y: middleHeight,
       immediate: false,
-      config: config.stiff,
+      config: config.slow,
     });
   }
 
@@ -40,58 +49,63 @@ export function Sheet({ children }: SheetProps) {
     api.start({
       y: FULL_HEIGHT,
       immediate: false,
-      config: { ...config.stiff, velocity },
+      config: { ...config.slow, velocity },
     });
   }
 
-  function handleFull(canceled: boolean = false) {
+  function handleFull() {
+    console.log("handleFull");
     setState("FULL");
-    toFull(canceled);
+    toFull();
   }
 
   function handleMiddle() {
+    console.log("handleMiddle");
     setState("MIDDLE");
-    toMidlde();
+    toMiddle();
   }
 
   function handleClose(velocity = 0) {
+    console.log("handleClose");
     setState("CLOSED");
     toClose(velocity);
   }
 
+  useEffect(() => {
+    match(state)
+      .with("CLOSED", () => {
+        toClose();
+      })
+      .with("MIDDLE", () => {
+        toMiddle();
+      })
+      .with("FULL", () => {
+        toFull();
+      })
+      .exhaustive();
+  }, [state]);
+
   const bind = useDrag(
-    ({
-      last,
-      velocity: [, vy],
-      direction: [, dy],
-      movement: [, my],
-      cancel,
-      canceled,
-    }) => {
+    ({ last, velocity: [, vy], direction: [, dy], movement: [, my] }) => {
       // when the user releases the sheet, we check whether it passed
       // the threshold for it to close, or if we reset it to its open position
       if (last) {
         match(state)
-          .with("CLOSED", () => {
-            console.log("closed");
-          })
+          .with("CLOSED", () => {})
           .with("MIDDLE", () => {
-            console.log("middle");
             const shouldClose = my > FULL_HEIGHT * 0.7 || (vy > 0.5 && dy > 0);
             const shouldFull = my < FULL_HEIGHT * 0.3 || (vy < -0.5 && dy < 0);
 
             if (shouldClose) {
               handleClose(vy);
             } else if (shouldFull) {
-              handleFull(canceled);
+              handleFull();
             } else {
               handleMiddle();
             }
           })
           .with("FULL", () => {
-            console.log("full");
             const shouldClose = my > FULL_HEIGHT * 0.6;
-            console.log({ vy, dy });
             const shouldMiddle =
               (my > FULL_HEIGHT * 0.3 && my < FULL_HEIGHT * 0.7) ||
               (vy > 0.5 && dy > 0);
@@ -101,7 +115,7 @@ export function Sheet({ children }: SheetProps) {
             } else if (shouldMiddle) {
               handleMiddle();
             } else {
-              handleFull(canceled);
+              handleFull();
             }
           })
           .exhaustive();
@@ -112,7 +126,7 @@ export function Sheet({ children }: SheetProps) {
         match(state)
           .with("CLOSED", () => {})
           .with("MIDDLE", () => {
-            api.start({ y: my + FULL_HEIGHT / 2, immediate: true });
+            api.start({ y: my + middleHeight, immediate: true });
           })
           .with("FULL", () => {
             api.start({ y: my, immediate: true });
@@ -131,49 +145,22 @@ export function Sheet({ children }: SheetProps) {
   const display = y.to((py) => (py < FULL_HEIGHT * 2 ? "block" : "none"));
 
   return (
-    <main className="flex h-screen w-screen flex-row items-center justify-center bg-yellow-700">
-      <div className="flex gap-2">
-        <button
-          className="rounded bg-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-400"
-          onClick={() => {
-            handleClose();
-          }}
-        >
-          CLOSE
-        </button>
-        <button
-          className="rounded bg-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-400"
-          onClick={() => {
-            handleMiddle();
-          }}
-        >
-          MIDDLE
-        </button>
-        <button
-          className="rounded bg-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-400"
-          onClick={() => {
-            handleFull();
-          }}
-        >
-          FULL
-        </button>
-      </div>
-
-      <div className="relative flex h-[640px] w-[360px] flex-col items-center justify-center overflow-hidden bg-yellow-100 shadow-2xl shadow-yellow-900/70">
-        <a.div
-          className="z-100 absolute h-[calc(640px+100px)] w-1/2 touch-none select-none rounded-t-xl bg-white shadow-2xl shadow-yellow-900/70"
-          //                           calc(360px + 100px)
-          {...bind()}
-          // style={{ display, bottom: `calc(-360px + ${HEIGHT - 100}px)`, y }}
-          style={{
-            display,
-            bottom: `calc(-640px + ${FULL_HEIGHT - 100}px)`,
-            y,
-          }}
-        >
-          <div className="flex p-4">{children}</div>
-        </a.div>
-      </div>
-    </main>
+    <div className="pointer-events-none fixed flex h-screen w-screen flex-col overflow-hidden">
+      <a.div
+        className={`h-[calc(${FULL_HEIGHT}px+100px)] z-100 pointer-events-auto absolute w-full touch-none select-none rounded-t-xl bg-white shadow-2xl shadow-yellow-900/70`}
+        //             calc(640px + 100px)
+        {...bind()}
+        style={{
+          display,
+          bottom: `calc(-${FULL_HEIGHT}px + ${FULL_HEIGHT - 100}px)`,
+          y,
+          height: `calc(${FULL_HEIGHT}px + ${
+            top !== undefined ? 100 - top : 100
+          }px)`,
+        }}
+      >
+        <div className="flex p-4">{children}</div>
+      </a.div>
+    </div>
   );
 }
