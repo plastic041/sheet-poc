@@ -1,7 +1,6 @@
 import { useSpring, a } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { match } from "ts-pattern";
-import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 const FULL_HEIGHT = 640;
@@ -71,19 +70,17 @@ export function Sheet({
     toClose(velocity);
   }
 
-  useEffect(() => {
-    match(state)
-      .with("CLOSED", () => {
-        toClose();
-      })
-      .with("MIDDLE", () => {
-        toMiddle();
-      })
-      .with("FULL", () => {
-        toFull();
-      })
-      .exhaustive();
-  }, [state]);
+  match(state)
+    .with("CLOSED", () => {
+      toClose();
+    })
+    .with("MIDDLE", () => {
+      toMiddle();
+    })
+    .with("FULL", () => {
+      toFull();
+    })
+    .exhaustive();
 
   const bind = useDrag(
     ({ last, velocity: [, vy], direction: [, dy], movement: [, my] }) => {
